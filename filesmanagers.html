@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Contrôle - Vales</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #050505; --card: #0a0a0c; --border: #1f1f23; --border-light: #2d2d33;
+            --text-main: #f9fafb; --text-secondary: #a1a1aa;
+            --accent: #10b981; --accent-hover: #059669;
+            --danger: #ef4444; --warning: #f59e0b; --info: #3b82f6;
+            --console-bg: #000000; --console-text: #e5e5e5;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background-color: var(--bg); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
+
+        .sidebar { width: 280px; background: var(--card); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; z-index: 10;}
+        .sidebar-header { padding: 25px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 15px; }
+        .bot-icon { width: 48px; height: 48px; background: rgba(255,255,255,0.05); border-radius: 12px; display: flex; justify-content: center; align-items: center; border: 1px solid var(--border-light);}
+        .bot-icon svg { width: 24px; height: 24px; stroke: var(--text-main); fill: none; stroke-width: 2;}
+        .bot-info h2 { font-size: 1.1rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; color: #fff;}
+        .bot-info p { font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px;}
+        
+        .sidebar-nav { padding: 20px 15px; flex-grow: 1; display: flex; flex-direction: column; gap: 8px;}
+        .nav-link { display: flex; align-items: center; gap: 12px; padding: 14px 16px; color: var(--text-secondary); text-decoration: none; border-radius: 12px; font-size: 0.95rem; font-weight: 500; transition: 0.2s; cursor: pointer;}
+        .nav-link svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; }
+        .nav-link:hover { background: rgba(255,255,255,0.03); color: var(--text-main); }
+        .nav-link.active { background: rgba(16, 185, 129, 0.1); color: var(--accent); border-left: 4px solid var(--accent); border-radius: 0 12px 12px 0;}
+        .sidebar-footer { padding: 20px 15px; border-top: 1px solid var(--border); }
+        .sidebar-footer .nav-link { color: var(--text-secondary); }
+
+        .main-content { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; background: radial-gradient(circle at top right, #111114, #050505); }
+        .panel-topbar { height: 75px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 30px; background: rgba(10,10,12,0.6); backdrop-filter: blur(10px);}
+        .status-badge { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.03); padding: 10px 20px; border-radius: 100px; font-size: 0.95rem; font-weight: 600; border: 1px solid var(--border);}
+        .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--text-secondary); transition: 0.3s;}
+        .dot.online { background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+
+        .view-section { padding: 40px; display: none; height: calc(100vh - 75px); overflow-y: auto; }
+        .view-section.active { display: flex; flex-direction: column; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* CONSOLE */
+        .console-controls { display: flex; gap: 15px; margin-bottom: 20px; background: var(--card); padding: 15px; border-radius: 16px; border: 1px solid var(--border); align-items: center;}
+        .btn-ctrl { padding: 10px 20px; border-radius: 10px; font-weight: 700; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; gap: 8px; border: none; transition: 0.2s; color: #fff;}
+        .btn-start { background: var(--accent); } .btn-start:hover { background: var(--accent-hover); transform: translateY(-2px);}
+        .btn-stop { background: var(--danger); } 
+        .btn-restart { background: var(--info); }
+        .console-tools { display: flex; gap: 10px; margin-left: auto; }
+        .btn-tool { background: rgba(255,255,255,0.05); border: 1px solid var(--border-light); padding: 10px; border-radius: 10px; color: var(--text-main); cursor: pointer;}
+        .terminal-container { background: var(--console-bg); border: 1px solid var(--border-light); border-radius: 16px; flex-grow: 1; padding: 25px; font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; overflow-y: auto; color: var(--console-text); box-shadow: inset 0 0 40px rgba(0,0,0,0.8); }
+        .log-line { margin-bottom: 8px; line-height: 1.5; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 6px;}
+        .log-time { color: #555; margin-right: 15px; font-size: 0.85rem;}
+        .log-info { color: #3b82f6;} .log-success { color: #10b981;} .log-error { color: #ef4444;} .log-warn { color: #f59e0b;}
+
+        /* FICHIERS */
+        .fm-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: var(--card); padding: 12px 20px; border-radius: 16px; border: 1px solid var(--border);}
+        .fm-group { display: flex; gap: 10px; }
+        .btn-fm { background: transparent; color: var(--text-main); border: 1px solid var(--border); padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s; }
+        .btn-fm:hover { background: rgba(255,255,255,0.05); border-color: var(--border-light); }
+        .btn-fm.danger { color: var(--danger); border-color: rgba(239,68,68,0.3); }
+
+        .code-layout { display: flex; flex-grow: 1; gap: 20px; min-height: 0;}
+        .file-tree { width: 260px; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 15px; overflow-y: auto;}
+        .file-item { font-size: 0.95rem; padding: 10px 12px; cursor: pointer; border-radius: 10px; display: flex; align-items: center; gap: 10px; color: var(--text-secondary); font-weight: 500;}
+        .file-item:hover { background: rgba(255,255,255,0.05); color: #fff;}
+        .file-item.active { background: rgba(16, 185, 129, 0.1); color: var(--accent);}
+        
+        .editor-wrapper { flex-grow: 1; display: flex; flex-direction: column; background: var(--console-bg); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; box-shadow: inset 0 0 30px rgba(0,0,0,0.6);}
+        .editor-header { padding: 12px 20px; background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem;}
+        .code-textarea { flex-grow: 1; background: transparent; border: none; padding: 20px; color: #a6accd; font-family: 'JetBrains Mono', monospace; font-size: 1rem; resize: none; outline: none; line-height: 1.6;}
+
+        /* UTILISATEURS */
+        .users-list { display: flex; flex-direction: column; gap: 15px; }
+        .user-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;}
+        .user-card-info { display: flex; align-items: center; gap: 15px;}
+        .add-user-box { display: flex; gap: 10px; margin-bottom: 30px; }
+        .add-user-box input { flex-grow: 1; background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: 15px; border-radius: 12px; color: #fff; font-size: 1rem; outline: none;}
+
+        /* PARAMÈTRES */
+        .settings-card { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 35px; max-width: 800px; margin-bottom: 30px;}
+        .settings-card h3 { margin-bottom: 20px; font-size: 1.3rem; border-bottom: 1px solid var(--border); padding-bottom: 15px;}
+        .form-group { margin-bottom: 25px; }
+        .form-group label { display: block; font-size: 0.95rem; font-weight: 600; color: var(--text-main); margin-bottom: 10px;}
+        .form-group input { width: 100%; background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: 14px 18px; border-radius: 12px; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 1rem;}
+        .btn-save { background: var(--accent); color: #fff; padding: 12px 24px; border-radius: 10px; font-weight: 700; border: none; cursor: pointer; float: right; transition: 0.2s;}
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="bot-icon"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg></div>
+            <div class="bot-info">
+                <h2 id="ui-bot-name">Chargement...</h2>
+                <p id="ui-bot-engine">Vérification</p>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a class="nav-link active" onclick="switchView('console', this)">
+                <svg viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg> Console
+            </a>
+            <a class="nav-link" onclick="switchView('editor', this)">
+                <svg viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg> Fichiers (.env)
+            </a>
+            <a class="nav-link" id="nav-users" onclick="switchView('users', this)">
+                <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg> Utilisateurs
+            </a>
+            <a class="nav-link" id="nav-settings" onclick="switchView('settings', this)">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg> Paramètres
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <a href="dashboard.html" class="nav-link"><svg viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg> Retour au Dashboard</a>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="panel-topbar">
+            <div class="status-badge"><div class="dot" id="ui-dot"></div><span id="ui-status-text">Hors ligne</span></div>
+        </header>
+
+        <section id="view-console" class="view-section active">
+            <div class="console-controls">
+                <button class="btn-ctrl btn-start" onclick="startBot()"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> Démarrer</button>
+                <button class="btn-ctrl btn-stop" onclick="stopBot()"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><rect x="6" y="6" width="12" height="12"></rect></svg> Éteindre</button>
+                <button class="btn-ctrl btn-restart" onclick="restartBot()"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline></svg> Redémarrer</button>
+                
+                <div class="console-tools">
+                    <button class="btn-tool" onclick="copyConsole()"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
+                    <button class="btn-tool" onclick="clearConsole()"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+                </div>
+            </div>
+            <div class="terminal-container" id="terminal"><div class="log-line"><span class="log-time">[Système]</span> Console prête.</div></div>
+        </section>
+
+        <section id="view-editor" class="view-section">
+            <div class="fm-toolbar">
+                <div class="fm-group"><button class="btn-fm" onclick="createNewFile()">Nouveau Fichier</button></div>
+                <div class="fm-group"><button class="btn-fm danger" onclick="deleteCurrentFile()">Supprimer</button></div>
+            </div>
+            <div class="code-layout">
+                <div class="file-tree" id="file-tree"></div>
+                <div class="editor-wrapper">
+                    <div class="editor-header">
+                        <span id="current-filename">/home/container/</span>
+                        <button class="btn-ctrl btn-start" style="padding: 6px 15px; font-size:0.85rem;" onclick="saveCurrentFile()">Sauvegarder</button>
+                    </div>
+                    <textarea id="code-area" class="code-textarea" spellcheck="false" oninput="syncToSettings()"></textarea>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-users" class="view-section">
+            <h2 style="margin-bottom: 20px; font-size: 1.8rem;">Gestion des Accès</h2>
+            <div class="add-user-box">
+                <input type="text" id="new-user-id" placeholder="Entrez l'ID Discord du co-administrateur" autocomplete="off">
+                <button class="btn-ctrl btn-start" onclick="addUser()">Autoriser l'accès</button>
+            </div>
+            <div class="users-list" id="users-list"><div style="color: var(--text-secondary);">Chargement...</div></div>
+        </section>
+
+        <section id="view-settings" class="view-section">
+            <h2 style="margin-bottom: 25px; font-size: 1.8rem;">Configuration système</h2>
+            <div class="settings-card">
+                <h3>Token & Sécurité</h3>
+                <div class="form-group">
+                    <label>Token du Bot</label>
+                    <p>Ce champ modifie automatiquement votre fichier .env</p>
+                    <input type="password" id="setting-bot-token" placeholder="Collez votre Token ici..." autocomplete="off" oninput="syncToEnv()">
+                </div>
+                <div class="form-group">
+                    <label>ID Discord (Créateur)</label>
+                    <input type="text" id="setting-owner-id" disabled style="background: rgba(0,0,0,0.5); color: #888;">
+                </div>
+                <button class="btn-save" onclick="saveSettings()">Sauvegarder</button>
+                <div style="clear:both;"></div>
+            </div>
+            <div class="settings-card" id="danger-zone-card" style="border-color: rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.02);">
+                <h3 style="color: var(--danger);">Zone Dangereuse</h3>
+                <button class="btn-ctrl btn-stop" style="margin: 0;" onclick="deleteInstance()">Détruire l'instance définitivement</button>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        let currentBot = null;
+        let currentUser = null;
+        let isOwner = false;
+        let isRunning = false;
+        let files = {};
+        let currentFile = "";
+        let subUsers = [];
+
+        window.onload = async () => {
+            const token = localStorage.getItem('discord_token');
+            if (!token) return window.location.href = 'login.html';
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const botId = urlParams.get('id');
+            if(!botId) return window.location.href = 'dashboard.html';
+
+            try {
+                const response = await fetch('https://discord.com/api/users/@me', { headers: { authorization: `Bearer ${token}` } });
+                currentUser = await response.json();
+                if(!currentUser.username) throw new Error("Invalide");
+
+                const res = await fetch(`api.php?action=get&discord_id=${currentUser.id}`);
+                const bots = await res.json();
+                
+                currentBot = bots.find(b => b.id == botId);
+                if(!currentBot) return window.location.href = 'dashboard.html';
+
+                document.getElementById('ui-bot-name').innerText = currentBot.name;
+                document.getElementById('ui-bot-engine').innerText = currentBot.engine;
+                document.getElementById('setting-owner-id').value = currentBot.owner_id;
+
+                isOwner = (currentUser.id === currentBot.owner_id);
+                if(!isOwner) {
+                    document.getElementById('nav-users').style.display = 'none';
+                    document.getElementById('nav-settings').style.display = 'none';
+                }
+
+                if(currentBot.token_value) { document.getElementById('setting-bot-token').value = currentBot.token_value; }
+
+                initFileManager();
+                if(isOwner) initUsers();
+
+                if(currentBot.status === 'En ligne') { setStatus(true); addLog("Serveur restauré : En ligne.", "success"); }
+
+            } catch (error) { window.location.href = 'login.html'; }
+        };
+
+        function switchView(viewId, element) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.getElementById('view-' + viewId).classList.add('active');
+            document.querySelectorAll('.sidebar-nav .nav-link').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+        }
+
+        // SYNCHRO ENV <-> PARAMETRES
+        function syncToSettings() {
+            if(currentFile === '.env') {
+                let code = document.getElementById('code-area').value;
+                let tokenMatch = code.match(/TOKEN=([^\n]*)/);
+                if(tokenMatch) document.getElementById('setting-bot-token').value = tokenMatch[1].replace(/['"]/g, '').trim();
+            }
+        }
+        function syncToEnv() {
+            let tokenValue = document.getElementById('setting-bot-token').value.trim();
+            if(files['.env'] !== undefined) {
+                if(files['.env'].includes('TOKEN=')) files['.env'] = files['.env'].replace(/TOKEN=.*/, `TOKEN=${tokenValue}`);
+                else files['.env'] += `\nTOKEN=${tokenValue}`;
+                if(currentFile === '.env') document.getElementById('code-area').value = files['.env'];
+                localStorage.setItem(`bot_files_${currentBot.id}`, JSON.stringify(files));
+            }
+        }
+
+        // CONSOLE (AVEC VRAIE VERIFICATION NAVIGATEUR)
+        const terminal = document.getElementById('terminal');
+        function addLog(msg, type = '') {
+            const time = new Date().toLocaleTimeString();
+            let colorClass = type === 'info' ? 'log-info' : type === 'success' ? 'log-success' : type === 'error' ? 'log-error' : type === 'warn' ? 'log-warn' : '';
+            terminal.innerHTML += `<div class="log-line ${colorClass}"><span class="log-time">[${time}]</span> ${msg}</div>`;
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+        function clearConsole() { terminal.innerHTML = ''; }
+        function copyConsole() { navigator.clipboard.writeText(terminal.innerText).then(() => alert("Copié !")); }
+
+        function setStatus(online) {
+            isRunning = online;
+            const dot = document.getElementById('ui-dot');
+            const text = document.getElementById('ui-status-text');
+            if(online) { dot.classList.add('online'); text.innerText = "En ligne"; text.style.color = "var(--accent)"; } 
+            else { dot.classList.remove('online'); text.innerText = "Hors ligne"; text.style.color = "var(--text-secondary)"; }
+        }
+
+        async function saveStatus(status) {
+            try { await fetch('api.php?action=update_status', { method: 'POST', body: JSON.stringify({ bot_id: currentBot.id, status: status }) }); } catch(e) {}
+        }
+
+        async function startBot() {
+            if(isRunning) return;
+            let envContent = files['.env'] || "";
+            let tokenMatch = envContent.match(/TOKEN=([^\n]*)/);
+            
+            if(!tokenMatch || tokenMatch[1].trim() === "") return addLog("Erreur: Le paramètre TOKEN est introuvable dans le fichier .env.", "error");
+            
+            let extractedToken = tokenMatch[1].replace(/['"]/g, '').trim();
+            addLog("Démarrage de l'environnement...", "info");
+
+            try {
+                // Sauvegarde DB
+                fetch('api.php?action=update_settings', { method: 'POST', body: JSON.stringify({ bot_id: currentBot.id, token: extractedToken }) });
+
+                // VRAIE VERIFICATION PAR LE NAVIGATEUR
+                const res = await fetch('https://discord.com/api/v10/users/@me', { headers: { 'Authorization': `Bot ${extractedToken}` } });
+
+                if(res.ok) {
+                    const data = await res.json();
+                    addLog(`Authentification réussie ! Connecté: ${data.username}#${data.discriminator}`, "success");
+                    setStatus(true); saveStatus('En ligne');
+                } else {
+                    addLog("Erreur Discord: Le Token a été refusé.", "error");
+                    setStatus(false);
+                }
+            } catch(e) { addLog("Erreur connexion réseau.", "error"); }
+        }
+
+        function stopBot() {
+            if(!isRunning) return;
+            addLog("Processus arrêté.", "error");
+            setStatus(false); saveStatus('Hors ligne');
+        }
+        function restartBot() { stopBot(); setTimeout(startBot, 1000); }
+
+        // PARAMETRES
+        async function saveSettings() {
+            const tokenInput = document.getElementById('setting-bot-token').value.trim();
+            try {
+                const res = await fetch('api.php?action=update_settings', {
+                    method: 'POST', body: JSON.stringify({ bot_id: currentBot.id, token: tokenInput })
+                });
+                const data = await res.json();
+                if(data.success) { syncToEnv(); alert("Token sauvegardé !"); } else alert("Erreur.");
+            } catch (err) { alert("Erreur API."); }
+        }
+
+        // FICHIERS
+        function initFileManager() {
+            let savedFiles = localStorage.getItem(`bot_files_${currentBot.id}`);
+            if(savedFiles) files = JSON.parse(savedFiles);
+            else {
+                let tk = currentBot.token_value || "";
+                files = { ".env": `TOKEN=${tk}\nPREFIX=!`, "package.json": "{\n  \"name\": \"bot\"\n}" };
+                if(currentBot.engine === "Python") files["main.py"] = "import discord";
+                else files["index.js"] = "const Discord = require('discord.js');";
+            }
+            renderFileTree(); openFile(".env");
+        }
+
+        function renderFileTree() {
+            const tree = document.getElementById('file-tree');
+            tree.innerHTML = `<div style="font-size:0.75rem; color:#888; font-weight:700; margin-bottom:15px;">/HOME/CONTAINER</div>`;
+            for(let filename in files) {
+                let isActive = filename === currentFile ? 'active' : '';
+                tree.innerHTML += `<div class="file-item ${isActive}" onclick="openFile('${filename}')"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path></svg> ${filename}</div>`;
+            }
+        }
+
+        function openFile(filename) {
+            currentFile = filename;
+            document.getElementById('current-filename').innerText = "/home/container/" + filename;
+            document.getElementById('code-area').value = files[filename];
+            renderFileTree();
+        }
+
+        function saveCurrentFile() {
+            files[currentFile] = document.getElementById('code-area').value;
+            localStorage.setItem(`bot_files_${currentBot.id}`, JSON.stringify(files));
+            syncToSettings(); alert("Sauvegardé !");
+        }
+
+        function createNewFile() {
+            let name = prompt("Nom du fichier :");
+            if(name && !files[name]) { files[name] = ""; localStorage.setItem(`bot_files_${currentBot.id}`, JSON.stringify(files)); openFile(name); }
+        }
+
+        function deleteCurrentFile() {
+            if(currentFile === '.env') return alert("Impossible de supprimer le .env");
+            if(confirm(`Supprimer ${currentFile} ?`)) {
+                delete files[currentFile]; localStorage.setItem(`bot_files_${currentBot.id}`, JSON.stringify(files));
+                let rem = Object.keys(files);
+                if(rem.length > 0) openFile(rem[0]); else renderFileTree();
+            }
+        }
+
+        // UTILISATEURS VIA API PHP
+        async function initUsers() {
+            try {
+                const res = await fetch(`api.php?action=get_users&bot_id=${currentBot.id}`);
+                subUsers = await res.json();
+                renderUsers();
+            } catch(e) {}
+        }
+
+        function renderUsers() {
+            const list = document.getElementById('users-list');
+            list.innerHTML = '';
+            if(subUsers.length === 0) return list.innerHTML = `<p style="color:var(--text-secondary);">Aucun utilisateur ajouté.</p>`;
+            subUsers.forEach(id => {
+                list.innerHTML += `
+                    <div class="user-card">
+                        <div class="user-card-info">
+                            <div style="width: 40px; height: 40px; background: rgba(255,255,255,0.05); border-radius: 50%; display: flex; justify-content: center; align-items: center;"><svg viewBox="0 0 24 24" width="20" height="20" stroke="#fff" fill="none" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>
+                            <div><div style="font-weight:700;">Sous-Utilisateur</div><div style="font-size:0.8rem; color:var(--text-secondary);">ID: ${id}</div></div>
+                        </div>
+                        <button class="btn-ctrl btn-stop" style="padding:6px 12px; font-size:0.8rem;" onclick="removeUser('${id}')">Révoquer</button>
+                    </div>
+                `;
+            });
+        }
+
+        async function addUser() {
+            let id = document.getElementById('new-user-id').value.trim();
+            if(id) {
+                const res = await fetch('api.php?action=add_user', {
+                    method: 'POST', body: JSON.stringify({ bot_id: currentBot.id, user_id: id })
+                });
+                const data = await res.json();
+                if(data.success) { document.getElementById('new-user-id').value = ''; initUsers(); }
+                else alert(data.error);
+            }
+        }
+
+        async function removeUser(id) {
+            await fetch('api.php?action=remove_user', { method: 'POST', body: JSON.stringify({ bot_id: currentBot.id, user_id: id }) });
+            initUsers();
+        }
+
+        // SUPPRESSION
+        async function deleteInstance() {
+            if(!isOwner) return alert("Interdit.");
+            if(!confirm("La suppression est IRRÉVERSIBLE. Confirmer ?")) return;
+            try {
+                const res = await fetch('api.php?action=delete', {
+                    method: 'POST', body: JSON.stringify({ bot_id: currentBot.id, discord_id: currentUser.id })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    localStorage.removeItem(`bot_files_${currentBot.id}`);
+                    window.location.href = 'dashboard.html';
+                } else alert("Erreur.");
+            } catch(e) { alert("Erreur API."); }
+        }
+    </script>
+</body>
+</html>
