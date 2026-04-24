@@ -1,0 +1,23 @@
+{
+  "name": "vales",
+  "version": "1.0.0",
+  "description": "��#\u0000 \u0000G\u0000G\u0000.\u0000V\u0000A\u0000L\u0000E\u0000S\u0000\r\u0000 \u0000",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Reloadddddd/GG.VALES.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Reloadddddd/GG.VALES/issues"
+  },
+  "homepage": "https://github.com/Reloadddddd/GG.VALES#readme",
+  "dependencies": {
+    "discord.js": "^14.26.3"
+  }
+}
